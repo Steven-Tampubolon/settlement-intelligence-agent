@@ -1,0 +1,169 @@
+{
+  "scenarios": {
+    "S1_AMAN": {
+      "description": "Skenario normal — kas cukup, satu settlement pending, tidak ada masalah",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Andi",
+        "marketplace": "shopee",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 4200000,
+        "average_daily_expense": 800000,
+        "settlements": [
+          {
+            "settlement_id": "SPJ-001",
+            "marketplace": "shopee",
+            "gross_revenue": 12400000,
+            "commission_rate": 0.05,
+            "admin_fee": 150000,
+            "shipping_subsidy": 280000,
+            "returns_total": 340000,
+            "scheduled_disbursement_date": "2026-09-24",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [],
+        "pending_stock_need": null
+      }
+    },
+    "S2_WASPADA": {
+      "description": "Kas mulai menipis — runway 5 hari, ada settlement masuk tapi perlu restock",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Andi",
+        "marketplace": "tokopedia",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 3500000,
+        "average_daily_expense": 700000,
+        "settlements": [
+          {
+            "settlement_id": "TPJ-201",
+            "marketplace": "tokopedia",
+            "gross_revenue": 9800000,
+            "commission_rate": 0.055,
+            "admin_fee": 120000,
+            "shipping_subsidy": 210000,
+            "returns_total": 200000,
+            "scheduled_disbursement_date": "2026-09-26",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [],
+        "pending_stock_need": {
+          "item": "mie instan karton",
+          "estimated_cost": 6000000,
+          "stock_depletes_on": "2026-09-28"
+        }
+      }
+    },
+    "S3_KRITIS": {
+      "description": "KRITIS — kas hampir habis, ada piutang jatuh tempo, runway 3 hari",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Andi",
+        "marketplace": "tiktok_shop",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 850000,
+        "average_daily_expense": 900000,
+        "settlements": [
+          {
+            "settlement_id": "TTJ-301",
+            "marketplace": "tiktok_shop",
+            "gross_revenue": 15200000,
+            "commission_rate": 0.06,
+            "admin_fee": 200000,
+            "shipping_subsidy": 350000,
+            "returns_total": 530000,
+            "scheduled_disbursement_date": "2026-09-28",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [
+          {
+            "buyer": "Toko Makmur",
+            "amount": 3500000,
+            "overdue_days": 8
+          }
+        ],
+        "pending_stock_need": null
+      }
+    },
+    "S4_RESTOCK_AMAN": {
+      "description": "Settlement sudah cair, bisa restock setelah dana masuk",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Andi",
+        "marketplace": "shopee",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 5800000,
+        "average_daily_expense": 650000,
+        "settlements": [
+          {
+            "settlement_id": "SPJ-401",
+            "marketplace": "shopee",
+            "gross_revenue": 11000000,
+            "commission_rate": 0.05,
+            "admin_fee": 130000,
+            "shipping_subsidy": 250000,
+            "returns_total": 120000,
+            "scheduled_disbursement_date": "2026-09-22",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [],
+        "pending_stock_need": {
+          "item": "sabun mandi bulk",
+          "estimated_cost": 4500000,
+          "stock_depletes_on": "2026-09-30"
+        }
+      }
+    },
+    "S5_MULTI_SETTLEMENT": {
+      "description": "Multi-marketplace — 2 settlement berbeda + piutang + butuh restock. Skenario paling kompleks.",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Andi",
+        "marketplace": "multi",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 2100000,
+        "average_daily_expense": 750000,
+        "settlements": [
+          {
+            "settlement_id": "SPJ-501",
+            "marketplace": "shopee",
+            "gross_revenue": 14500000,
+            "commission_rate": 0.05,
+            "admin_fee": 150000,
+            "shipping_subsidy": 300000,
+            "returns_total": 250000,
+            "scheduled_disbursement_date": "2026-09-24",
+            "status": "pending"
+          },
+          {
+            "settlement_id": "TPJ-501",
+            "marketplace": "tokopedia",
+            "gross_revenue": 8000000,
+            "commission_rate": 0.055,
+            "admin_fee": 100000,
+            "shipping_subsidy": 180000,
+            "returns_total": 120000,
+            "scheduled_disbursement_date": "2026-09-25",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [
+          {
+            "buyer": "Warung Bu Sari",
+            "amount": 1200000,
+            "overdue_days": 5
+          }
+        ],
+        "pending_stock_need": {
+          "item": "deterjen cair 1L",
+          "estimated_cost": 3800000,
+          "stock_depletes_on": "2026-09-27"
+        }
+      }
+    }
+  }
+}
