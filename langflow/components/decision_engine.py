@@ -23,6 +23,15 @@ class DecisionEngine(Component):
         return Message(text=json.dumps(result, ensure_ascii=False))
 
     def _make_decision(self, risk_data: dict) -> dict:
+        """
+        Tipe keputusan yang sudah diimplementasikan:
+        - collect_receivable: tagih piutang jika KRITIS dan ada piutang jatuh tempo
+        - restock: restock setelah settlement cair
+
+        TODO (sprint berikutnya):
+        - flash_sale: rekomendasikan flash sale jika stok menumpuk + kas cukup
+        - multiple: gabungkan beberapa keputusan jika ada lebih dari satu kondisi aktif
+        """
         pending_decision = None
         status = risk_data["status"]
         overdue = risk_data.get("overdue_receivables", [])
