@@ -1,14 +1,18 @@
 # backend/main.py
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.config import validate_config
+from backend.config import validate_config, TELEGRAM_BOT_TOKEN, WEBHOOK_BASE_URL
 from backend.database import init_db, seed_demo_store
 from backend.scheduler.daily_monitor import run_daily_monitoring
+from backend.services.telegram_webhook import build_telegram_app
+
+import telegram
 
 scheduler = AsyncIOScheduler(timezone="Asia/Jakarta")
+telegram_app = build_telegram_app()
 
 
 @asynccontextmanager
@@ -17,6 +21,18 @@ async def lifespan(app: FastAPI):
     init_db()
     seed_demo_store()
 
+    # Initialize telegram app
+    await telegram_app.initialize()
+
+    # Setup webhook jika URL tersedia
+    if WEBHOOK_BASE_URL:
+        webhook_url = f"{WEBHOOK_BASE_URL}/webhook/telegram"
+        await telegram_app.bot.set_webhook(url=webhook_url)
+        print(f"✅ Telegram webhook aktif: {webhook_url}")
+    else:
+        print("⚠️  WEBHOOK_BASE_URL tidak diset — webhook tidak aktif")
+
+    # Start scheduler
     scheduler.add_job(
         run_daily_monitoring,
         "cron",
@@ -26,7 +42,13 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     print("✅ Scheduler aktif — monitoring harian 06:00 WIB")
+
     yield
+
+    # Shutdown
+    if WEBHOOK_BASE_URL:
+        await telegram_app.bot.delete_webhook()
+    await telegram_app.shutdown()
     scheduler.shutdown()
 
 
@@ -37,6 +59,17 @@ app = FastAPI(
 )
 
 
+# ── Webhook endpoint ───────────────────────────────────────────────────
+@app.post("/webhook/telegram")
+async def telegram_webhook(request: Request):
+    """Terima update dari Telegram dan proses via python-telegram-bot."""
+    data = await request.json()
+    update = telegram.Update.de_json(data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return {"ok": True}
+
+
+# ── Endpoints lainnya ──────────────────────────────────────────────────
 class TriggerRequest(BaseModel):
     store_id: str = "toko_andi_001"
     scenario: str = "S1_AMAN"
@@ -49,7 +82,6 @@ def health():
 
 @app.post("/trigger")
 def trigger_now(req: TriggerRequest):
-    """Trigger monitoring manual — untuk demo dan testing."""
     import threading
     t = threading.Thread(
         target=run_daily_monitoring,
@@ -66,11 +98,12 @@ def trigger_now(req: TriggerRequest):
 
 @app.post("/trigger/scenario/{scenario}")
 def trigger_scenario(scenario: str):
-    """Trigger satu skenario spesifik."""
     valid_scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
     if scenario not in valid_scenarios:
-        raise HTTPException(status_code=400, detail=f"Scenario tidak valid. Pilih dari: {valid_scenarios}")
-
+        raise HTTPException(
+            status_code=400,
+            detail=f"Scenario tidak valid. Pilih dari: {valid_scenarios}"
+        )
     import threading
     t = threading.Thread(
         target=run_daily_monitoring,
@@ -82,7 +115,6 @@ def trigger_scenario(scenario: str):
 
 @app.post("/trigger/all-scenarios")
 def trigger_all_scenarios():
-    """Jalankan semua 5 skenario — untuk demo hackathon."""
     scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
     results = []
     for s in scenarios:
@@ -102,7 +134,6 @@ def scheduler_status():
 
 @app.get("/alerts/history")
 def alert_history():
-    """Lihat history alert yang sudah terkirim."""
     import sqlite3
     from backend.database import get_db_path
     conn = sqlite3.connect(get_db_path())

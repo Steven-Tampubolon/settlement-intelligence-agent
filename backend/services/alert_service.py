@@ -6,7 +6,7 @@ from datetime import datetime
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from backend.config import TELEGRAM_BOT_TOKEN, DATABASE_URL
+from backend.config import TELEGRAM_BOT_TOKEN, DATABASE_URL, LLM_MODEL_NAME
 
 
 def get_db_path() -> str:
@@ -44,7 +44,7 @@ def send_alert(store_id: str, validated_output: dict) -> dict:
     else:
         message = parsed.get("full_message", "")
         button_text = parsed.get("action_button", "Lihat Detail")
-        model_used = "groq/compound-mini"
+        model_used = LLM_MODEL_NAME
 
     # Build inline keyboard
     keyboard = InlineKeyboardMarkup([[

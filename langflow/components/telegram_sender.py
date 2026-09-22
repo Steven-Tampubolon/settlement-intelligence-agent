@@ -6,7 +6,6 @@ TIDAK BOLEH: Format ulang isi pesan, buat keputusan berdasarkan respons
 import os
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -33,7 +32,6 @@ class TelegramSender(CustomComponent):
             },
             "model_used": {
                 "display_name": "LLM Model Used",
-                "value": "groq/compound-mini",
                 "required": False,
             },
         }
@@ -43,32 +41,30 @@ class TelegramSender(CustomComponent):
         validated_output: dict,
         chat_id: str,
         store_id: str,
-        model_used: str = "groq/compound-mini",
+        model_used: str = "",
     ) -> dict:
         return send_telegram_alert(validated_output, chat_id, store_id, model_used)
 
 
-# ── Fungsi standalone ─────────────────────────────────────────────────
 def send_telegram_alert(
     validated_output: dict,
     chat_id: str,
     store_id: str,
-    model_used: str = "groq/compound-mini",
+    model_used: str = "",
 ) -> dict:
-    """
-    Kirim alert ke Telegram dan catat ke database.
-    validated_output bisa dari LLM atau fallback template.
-    """
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not bot_token:
         raise ValueError("TELEGRAM_BOT_TOKEN tidak ada di environment variables")
+
+    # Ambil nama model dari env jika tidak disupply
+    if not model_used:
+        model_used = os.environ.get("LLM_MODEL_NAME", "unknown")
 
     parsed = validated_output.get("parsed") or validated_output
     message = parsed["full_message"]
     button_text = parsed.get("action_button", "Lihat Detail")
     is_fallback = parsed.get("_fallback_used", False)
 
-    # Build inline keyboard
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
@@ -82,7 +78,6 @@ def send_telegram_alert(
         ]
     ])
 
-    # Kirim ke Telegram
     import asyncio
 
     async def _send():
@@ -96,7 +91,6 @@ def send_telegram_alert(
 
     asyncio.run(_send())
 
-    # Catat ke alert_history
     _save_alert_history(
         store_id=store_id,
         status=parsed.get("status_line", ""),
@@ -121,7 +115,6 @@ def _save_alert_history(
     llm_model_used: str,
     validation_passed: bool,
 ):
-    """Simpan ke SQLite. Database path dari env var."""
     db_path = os.environ.get("DATABASE_URL", "sqlite:///./settlement_agent.db")
     db_path = db_path.replace("sqlite:///", "")
 

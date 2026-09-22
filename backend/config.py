@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+LLM_MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "qwen/qwen3.8-27b")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+WEBHOOK_BASE_URL = os.environ.get("WEBHOOK_BASE_URL", "")
 LANGFLOW_BASE_URL = os.environ.get("LANGFLOW_BASE_URL", "http://localhost:7860")
 LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY", "")
 LANGFLOW_FLOW_ID = os.environ.get("LANGFLOW_FLOW_ID", "")
