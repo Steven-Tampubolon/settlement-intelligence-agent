@@ -85,10 +85,16 @@ class TestOutputValidator:
 
     def test_missing_settlement_number(self):
         """Net settlement tidak muncul di output — harus gagal."""
-        decision = _make_decision_data(net=4_320_000)  # 4.320.000 harus muncul
+        decision = _make_decision_data(
+            cash=850_000,
+            settlements=[
+                {"marketplace": "tiktok_shop", "net_amount": 4_320_000, "disbursement_date": "2026-09-28"}
+            ]
+        )
+        # full_message menyebut kas tapi TIDAK menyebut 4.320.000
         bad_output = json.dumps({
             "status_line": "⚠️ KRITIS – Kas Rp 850.000",
-            "incoming_funds": "💰 Dana masuk minggu ini",  # angka tidak ada
+            "incoming_funds": "💰 Dana masuk minggu ini",  # angka hilang
             "key_decision": "Tagih piutang",
             "full_message": "⚠️ KRITIS – Kas Rp 850.000\n💰 Dana masuk minggu ini",
             "action_button": "Tagih",

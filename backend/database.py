@@ -66,7 +66,7 @@ def seed_demo_store():
         INSERT OR IGNORE INTO stores (id, owner_name, telegram_chat_id, is_active)
         VALUES (?, ?, ?, ?)
         """,
-        ("toko_andi_001", "Pak Andi", "YOUR_TELEGRAM_CHAT_ID", True),
+        ("toko_andi_001", "Pak Andi", "7749965364", True),
     )
     conn.commit()
     conn.close()

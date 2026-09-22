@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
@@ -18,6 +16,7 @@ services:
     image: langflowai/langflow:latest
     container_name: langflow
     restart: unless-stopped
+    user: root
     depends_on:
       - postgres
     ports:
@@ -26,13 +25,16 @@ services:
       LANGFLOW_DATABASE_URL: postgresql://langflow:langflow@postgres:5432/langflow
       LANGFLOW_AUTO_LOGIN: "true"
       LANGFLOW_CONFIG_DIR: /app/langflow
+      LANGFLOW_COMPONENTS_PATH: /app/langflow/custom_components
     volumes:
       - langflow_data:/app/langflow
+      - ./langflow/components:/app/langflow/custom_components
+      - ./langflow/mock_data:/app/langflow/custom_components/mock_data
 
 volumes:
   postgres_data:
     external: true
-    name: capstone-ai-agent_postgres_data
+    name: settlement-agent_langflow_data
   langflow_data:
     external: true
-    name: capstone-ai-agent_langflow_data
+    name: settlement-agent_langflow_data

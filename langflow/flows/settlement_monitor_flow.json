@@ -1,0 +1,48 @@
+{
+  "name": "Settlement Monitor Flow",
+  "description": "Marketplace Settlement Intelligence Agent — monitor kas harian dan kirim alert Telegram",
+  "data": {
+    "nodes": [
+      {
+        "id": "TextInput-1",
+        "type": "genericNode",
+        "position": {"x": 80, "y": 300},
+        "data": {
+          "type": "TextInput",
+          "node": {
+            "template": {
+              "input_value": {
+                "value": "toko_andi_001",
+                "display_name": "Store ID",
+                "required": true
+              },
+              "sender_name": {"value": "Store ID Input"}
+            },
+            "display_name": "Store ID",
+            "description": "ID toko yang akan dimonitor"
+          }
+        }
+      },
+      {
+        "id": "CustomComponent-DataFetcher",
+        "type": "genericNode",
+        "position": {"x": 350, "y": 100},
+        "data": {
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "code": {
+                "value": "import json\nfrom pathlib import Path\nfrom langflow.custom import CustomComponent\n\nclass DataFetcher(CustomComponent):\n    display_name = 'Data Fetcher'\n    description = 'Ambil data settlement dari mock data'\n\n    def build_config(self):\n        return {\n            'store_id': {'display_name': 'Store ID', 'required': True},\n            'scenario': {'display_name': 'Scenario', 'value': 'S1_AMAN', 'required': False},\n        }\n\n    def build(self, store_id: str, scenario: str = 'S1_AMAN') -> dict:\n        mock_data_path = Path('/app/langflow/custom_components/mock_data/store_scenarios.json')\n        with open(mock_data_path, 'r', encoding='utf-8') as f:\n            all_scenarios = json.load(f)\n        if scenario not in all_scenarios['scenarios']:\n            raise ValueError(f'Scenario {scenario} tidak ditemukan')\n        data = all_scenarios['scenarios'][scenario]['data'].copy()\n        data['store_id'] = store_id\n        return data\n"
+              },
+              "store_id": {"value": "toko_andi_001", "display_name": "Store ID"},
+              "scenario": {"value": "S1_AMAN", "display_name": "Scenario"}
+            },
+            "display_name": "Data Fetcher"
+          }
+        }
+      }
+    ],
+    "edges": [],
+    "viewport": {"x": 0, "y": 0, "zoom": 0.8}
+  }
+}

@@ -1,11 +1,11 @@
 # backend/scheduler/daily_monitor.py
-import os
+import json
 from datetime import datetime
-from backend.services.langflow_client import LangflowClient
-from backend.database import get_all_active_stores
 
-# Flow ID diisi setelah import flow ke Langflow UI
-FLOW_ID = os.environ.get("LANGFLOW_FLOW_ID", "")
+from backend.config import LANGFLOW_FLOW_ID
+from backend.database import get_all_active_stores
+from backend.services.langflow_client import LangflowClient
+from backend.services.alert_service import send_alert
 
 client = LangflowClient()
 
@@ -13,10 +13,10 @@ client = LangflowClient()
 def run_daily_monitoring(scenario_override: str | None = None):
     """
     Jalankan monitoring untuk semua toko aktif.
-    scenario_override: jika diisi, pakai skenario ini untuk semua toko (untuk demo/test).
+    scenario_override: paksa skenario tertentu (untuk demo/test).
     """
-    if not FLOW_ID:
-        print("⚠️  LANGFLOW_FLOW_ID belum diset. Monitoring tidak jalan.")
+    if not LANGFLOW_FLOW_ID:
+        print("⚠️  LANGFLOW_FLOW_ID belum diset di .env")
         return
 
     if not client.health_check():
@@ -28,17 +28,30 @@ def run_daily_monitoring(scenario_override: str | None = None):
         print("ℹ️  Tidak ada toko aktif di database.")
         return
 
-    print(f"[{datetime.now().isoformat()}] Memulai monitoring {len(stores)} toko...")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] Memulai monitoring {len(stores)} toko...")
 
+    results = []
     for store in stores:
         scenario = scenario_override or "S1_AMAN"
-        print(f"  → {store['id']} ({store['owner_name']}) — skenario: {scenario}")
+        store_id = store["id"]
+        print(f"  → {store_id} ({store['owner_name']}) — skenario: {scenario}")
+
         try:
-            result = client.run_flow(
-                flow_id=FLOW_ID,
-                store_id=store["id"],
+            # Step 1: Jalankan flow di Langflow
+            validated_output = client.run_flow(
+                store_id=store_id,
                 scenario=scenario,
             )
-            print(f"  ✅ Selesai: {store['id']}")
+            print(f"    Flow selesai — valid: {validated_output.get('valid')}")
+
+            # Step 2: Kirim alert ke Telegram
+            result = send_alert(store_id=store_id, validated_output=validated_output)
+            results.append({"store_id": store_id, "status": "ok", **result})
+
         except Exception as e:
-            print(f"  ❌ Error pada {store['id']}: {e}")
+            print(f"  ❌ Error pada {store_id}: {e}")
+            results.append({"store_id": store_id, "status": "error", "error": str(e)})
+
+    print(f"[{timestamp}] Selesai. {len([r for r in results if r['status'] == 'ok'])}/{len(stores)} berhasil.")
+    return results

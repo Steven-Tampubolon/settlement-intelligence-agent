@@ -33,8 +33,16 @@ class TestProjectionBuilder:
 
     def test_settlement_menyelamatkan_kas(self):
         """
-        Kas 1jt, expense 500k/hari → habis H+2.
-        Tapi ada settlement 5jt di H+1 → kas aman.
+        Kas 1jt, expense 500k/hari → habis H+2 tanpa bantuan.
+        Tapi ada settlement 5jt di H+1 → kas bertahan lebih lama.
+
+        Trace:
+        H+0: 1.000.000 (tidak dikurangi expense di H+0)
+        H+1: 1.000.000 - 500.000 + 5.000.000 = 5.500.000
+        H+2 s/d H+12: -500.000/hari → saldo 0 tepat di H+12
+
+        Jadi runway_days = 12 (pertama kali saldo <= 0 di H+12).
+        Yang penting: JAUH lebih baik dari tanpa settlement (runway = 2).
         """
         today = date.today()
         from datetime import timedelta
@@ -51,7 +59,15 @@ class TestProjectionBuilder:
             }]
         )
         result = build_projection(net_data, reference_date=today)
-        assert result["runway_days"] == 14  # tidak pernah minus dalam 14 hari
+
+        # Settlement menyelamatkan kas: runway jauh lebih panjang dari tanpa settlement (2 hari)
+        assert result["runway_days"] > 2, "Settlement seharusnya memperpanjang runway"
+        assert result["runway_days"] == 12  # hasil kalkulasi yang benar
+
+        # Verifikasi saldo di H+1 benar (settlement masuk)
+        h1 = result["daily_projection"][1]
+        assert h1["projected_balance"] == 5_500_000
+        assert h1["incoming_today"] == 5_000_000
 
     def test_14_hari_output(self):
         """Proyeksi selalu menghasilkan 15 titik data (H+0 hingga H+14)."""

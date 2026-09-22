@@ -13,12 +13,10 @@ scheduler = AsyncIOScheduler(timezone="Asia/Jakarta")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     validate_config()
     init_db()
     seed_demo_store()
 
-    # Jadwal harian jam 06:00 WIB
     scheduler.add_job(
         run_daily_monitoring,
         "cron",
@@ -29,19 +27,15 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     print("✅ Scheduler aktif — monitoring harian 06:00 WIB")
     yield
-    # Shutdown
     scheduler.shutdown()
 
 
 app = FastAPI(
     title="Settlement Intelligence Agent",
-    description="API untuk monitoring dan trigger agent settlement marketplace",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-
-# ── Endpoints ──────────────────────────────────────────────────────────
 
 class TriggerRequest(BaseModel):
     store_id: str = "toko_andi_001"
@@ -50,14 +44,12 @@ class TriggerRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "settlement-intelligence-agent"}
+    return {"status": "ok"}
 
 
 @app.post("/trigger")
 def trigger_now(req: TriggerRequest):
-    """
-    Trigger monitoring manual — berguna untuk demo dan testing.
-    """
+    """Trigger monitoring manual — untuk demo dan testing."""
     import threading
     t = threading.Thread(
         target=run_daily_monitoring,
@@ -68,15 +60,29 @@ def trigger_now(req: TriggerRequest):
         "status": "triggered",
         "store_id": req.store_id,
         "scenario": req.scenario,
-        "message": "Monitoring berjalan di background. Cek Telegram Anda.",
+        "message": "Cek Telegram Anda dalam beberapa detik.",
     }
+
+
+@app.post("/trigger/scenario/{scenario}")
+def trigger_scenario(scenario: str):
+    """Trigger satu skenario spesifik."""
+    valid_scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
+    if scenario not in valid_scenarios:
+        raise HTTPException(status_code=400, detail=f"Scenario tidak valid. Pilih dari: {valid_scenarios}")
+
+    import threading
+    t = threading.Thread(
+        target=run_daily_monitoring,
+        kwargs={"scenario_override": scenario},
+    )
+    t.start()
+    return {"status": "triggered", "scenario": scenario}
 
 
 @app.post("/trigger/all-scenarios")
 def trigger_all_scenarios():
-    """
-    Jalankan semua 5 skenario secara berurutan — untuk demo hackathon.
-    """
+    """Jalankan semua 5 skenario — untuk demo hackathon."""
     scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
     results = []
     for s in scenarios:
@@ -90,11 +96,19 @@ def trigger_all_scenarios():
 
 @app.get("/scheduler/status")
 def scheduler_status():
-    jobs = [
-        {
-            "id": job.id,
-            "next_run": str(job.next_run_time),
-        }
-        for job in scheduler.get_jobs()
-    ]
+    jobs = [{"id": job.id, "next_run": str(job.next_run_time)} for job in scheduler.get_jobs()]
     return {"running": scheduler.running, "jobs": jobs}
+
+
+@app.get("/alerts/history")
+def alert_history():
+    """Lihat history alert yang sudah terkirim."""
+    import sqlite3
+    from backend.database import get_db_path
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM alert_history ORDER BY sent_at DESC LIMIT 20"
+    ).fetchall()
+    conn.close()
+    return {"alerts": [dict(r) for r in rows]}
