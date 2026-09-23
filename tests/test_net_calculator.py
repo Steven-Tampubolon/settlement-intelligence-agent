@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langflow.components.net_calculator import calculate_net
+from langflow.logic.net_calculator import calculate_net
 
 
 def _make_raw(settlements, cash=4200000, expense=800000):

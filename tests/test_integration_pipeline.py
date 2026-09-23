@@ -7,11 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langflow.components.data_fetcher import fetch_store_data
-from langflow.components.net_calculator import calculate_net
-from langflow.components.projection_builder import build_projection
-from langflow.components.risk_classifier import classify_risk
-from langflow.components.decision_engine import make_decision
+from langflow.logic.data_fetcher import fetch_store_data
+from langflow.logic.net_calculator import calculate_net
+from langflow.logic.projection_builder import build_projection
+from langflow.logic.risk_classifier import classify_risk
+from langflow.logic.decision_engine import make_decision
 
 
 def run_pipeline(scenario: str) -> dict:

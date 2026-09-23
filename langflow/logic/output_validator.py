@@ -1,0 +1,63 @@
+import json
+
+
+def validate_llm_output(llm_output: str, decision_data: dict) -> dict:
+    REQUIRED_FIELDS = ["status_line", "incoming_funds", "key_decision", "full_message", "action_button"]
+    try:
+        clean = llm_output.strip()
+        if clean.startswith("```"):
+            lines = clean.split("\n")
+            clean = "\n".join(lines[1:-1])
+        parsed = json.loads(clean)
+    except json.JSONDecodeError as e:
+        return {"valid": False, "parsed": None, "reason": f"invalid_json: {e}", "missing_numbers": []}
+    missing_fields = [f for f in REQUIRED_FIELDS if f not in parsed]
+    if missing_fields:
+        return {"valid": False, "parsed": parsed, "reason": f"missing_fields: {missing_fields}", "missing_numbers": []}
+    full_message = parsed.get("full_message", "")
+    critical_numbers = _extract_critical_numbers(decision_data)
+    missing_numbers = [n for n in critical_numbers if f"{n:,}".replace(",", ".") not in full_message]
+    if missing_numbers:
+        return {"valid": False, "parsed": parsed, "reason": "missing_numbers", "missing_numbers": missing_numbers}
+    return {"valid": True, "parsed": parsed, "reason": None, "missing_numbers": []}
+
+
+def _extract_critical_numbers(decision_data: dict) -> list:
+    numbers = []
+    if decision_data.get("current_cash", 0) > 10000:
+        numbers.append(int(decision_data["current_cash"]))
+    for s in decision_data.get("settlements", []):
+        if s.get("net_amount", 0) > 10000:
+            numbers.append(int(s["net_amount"]))
+    decision = decision_data.get("pending_decision")
+    if decision and decision.get("type") == "collect_receivable":
+        if decision.get("amount", 0) > 10000:
+            numbers.append(int(decision["amount"]))
+    return numbers
+
+
+def generate_fallback_message(decision_data: dict) -> dict:
+    status = decision_data["status"]
+    cash = decision_data["current_cash"]
+    runway = decision_data["runway_days"]
+    cash_fmt = f"Rp {cash:,}".replace(",", ".")
+    emoji_map = {"KRITIS": "⚠️", "WASPADA": "🟡", "AMAN": "✅"}
+    emoji = emoji_map.get(status, "ℹ️")
+    status_line = f"{emoji} {status} – Kas {cash_fmt}, runway {runway} hari"
+    settlements = decision_data.get("settlements", [])
+    incoming_parts = []
+    for s in settlements:
+        net_fmt = f"Rp {s['net_amount']:,}".replace(",", ".")
+        incoming_parts.append(f"{s['marketplace'].title()} {net_fmt} ({s['disbursement_date']})")
+    incoming_funds = "Dana masuk: " + ", ".join(incoming_parts) if incoming_parts else "Tidak ada dana masuk dalam 14 hari"
+    decision = decision_data.get("pending_decision")
+    key_decision = decision.get("recommendation", "Pantau kondisi kas") if decision else "Kondisi aman, pantau terus"
+    full_message = f"{status_line}\n{incoming_funds}\n📌 {key_decision}"
+    return {
+        "status_line": status_line,
+        "incoming_funds": incoming_funds,
+        "key_decision": key_decision,
+        "full_message": full_message,
+        "action_button": "Lihat Detail",
+        "_fallback_used": True,
+    }

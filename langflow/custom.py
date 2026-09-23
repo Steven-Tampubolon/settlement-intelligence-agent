@@ -2,6 +2,8 @@
 class CustomComponent:
     display_name: str = ""
     description: str = ""
+    inputs = []
+    outputs = []
 
     def build_config(self) -> dict:
         return {}
@@ -9,5 +11,5 @@ class CustomComponent:
     def build(self, *args, **kwargs):
         raise NotImplementedError
 
-# Alias yang dipakai Langflow 1.10.2
+# Alias untuk Langflow 1.10.2
 Component = CustomComponent

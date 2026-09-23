@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langflow.components.output_validator import validate_llm_output, generate_fallback_message
+from langflow.logic.output_validator import validate_llm_output, generate_fallback_message
 
 
 def _make_decision_data(cash=850_000, settlements=None):

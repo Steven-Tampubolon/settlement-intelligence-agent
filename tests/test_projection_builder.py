@@ -5,7 +5,7 @@ from datetime import date
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langflow.components.projection_builder import build_projection
+from langflow.logic.projection_builder import build_projection
 
 
 def _make_net_data(cash, expense, settlements):

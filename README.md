@@ -181,7 +181,7 @@ WEBHOOK_BASE_URL=https://xxx.ngrok-free.dev
 ## Test Results
 ```
 Unit tests: 27/27 passed
-Integration e2e: 13/13 passed
+Integration e2e: 15/15 passed
 Skenario validated: 5/5 valid=true, missing_numbers=[]
 ```
 

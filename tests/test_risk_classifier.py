@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langflow.components.risk_classifier import classify_risk, CRITICAL_THRESHOLD_DAYS, WARNING_THRESHOLD_DAYS
+from langflow.logic.risk_classifier import classify_risk, CRITICAL_THRESHOLD_DAYS, WARNING_THRESHOLD_DAYS
 
 
 def _make_projection(runway_days, min_balance=100_000):

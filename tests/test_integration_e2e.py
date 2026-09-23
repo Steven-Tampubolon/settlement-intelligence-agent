@@ -173,7 +173,7 @@ class TestFullPipeline:
         assert r.json()["status"] == "triggered"
 
         # Tunggu flow selesai
-        time.sleep(15)
+        time.sleep(30)
 
         # Verifikasi alert tersimpan di database
         count = count_alerts_after("toko_andi_001", before)
@@ -188,12 +188,27 @@ class TestFullPipeline:
             json={"store_id": "toko_andi_001", "scenario": "S3_KRITIS"},
         )
 
-        time.sleep(15)
+        time.sleep(30)
 
-        alert = get_latest_alert("toko_andi_001")
-        assert alert is not None
+        # Query berdasarkan waktu — ambil alert yang dibuat SETELAH trigger ini
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT * FROM alert_history
+            WHERE store_id = ? AND sent_at > ?
+            ORDER BY sent_at DESC LIMIT 1
+            """,
+            ("toko_andi_001", before),
+        ).fetchone()
+        conn.close()
+
+        assert row is not None, "Alert S3_KRITIS tidak tersimpan di database"
+        alert = dict(row)
         assert alert["validation_passed"] == 1
-        assert "850" in alert["message_sent"]
+        assert "850" in alert["message_sent"], (
+            f"Angka 850.000 tidak ada di pesan. Message: {alert['message_sent']}"
+        )
 
     def test_trigger_invalid_scenario(self, backend_url):
         r = requests.post(
@@ -220,3 +235,54 @@ class TestFullPipeline:
 
         failed = [r for r in results if r["status"] != "ok"]
         assert failed == [], f"Skenario gagal: {failed}"
+
+class TestRetryLogic:
+    """Test retry logic — verifikasi sistem retry sebelum fallback."""
+
+    def test_retry_counter_on_valid_response(self, backend_url, langflow_url):
+        """
+        S3_KRITIS adalah skenario yang pernah gagal di attempt pertama.
+        Verifikasi bahwa hasil akhirnya tetap valid (entah dari attempt 1, 2, atau 3).
+        """
+        r = requests.post(
+            f"{backend_url}/trigger",
+            json={"store_id": "toko_andi_001", "scenario": "S3_KRITIS"},
+        )
+        assert r.status_code == 200
+
+        time.sleep(15)
+
+        alert = get_latest_alert("toko_andi_001")
+        assert alert is not None
+        assert alert["validation_passed"] == 1, (
+            f"Alert tidak valid setelah retry. Message: {alert['message_sent']}"
+        )
+
+    def test_fallback_not_triggered_on_valid_scenarios(self, backend_url, langflow_url):
+        """
+        Semua skenario seharusnya valid tanpa fallback setelah retry logic aktif.
+        Verifikasi tidak ada 'Fallback' di pesan yang terkirim.
+        """
+        from datetime import datetime
+        before = datetime.now().isoformat()
+
+        requests.post(f"{backend_url}/trigger/all-scenarios", timeout=300)
+
+        time.sleep(5)
+
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM alert_history WHERE sent_at > ? ORDER BY sent_at DESC",
+            (before,),
+        ).fetchall()
+        conn.close()
+
+        fallback_alerts = [
+            dict(r) for r in rows
+            if "Fallback" in r["message_sent"] or r["validation_passed"] == 0
+        ]
+        assert fallback_alerts == [], (
+            f"Ada {len(fallback_alerts)} alert fallback: "
+            f"{[a['store_id'] for a in fallback_alerts]}"
+        )
