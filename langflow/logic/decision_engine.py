@@ -24,7 +24,7 @@ def make_decision(risk_data: dict) -> dict:
     active_decisions = []
 
     # Rule 1: KRITIS + ada piutang → tagih piutang
-    if status == "KRITIS" and overdue:
+    if overdue:
         active_decisions.append(_build_collect_receivable_decision(overdue))
 
     # Rule 2: ada kebutuhan restock

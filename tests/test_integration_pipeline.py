@@ -45,11 +45,16 @@ class TestIntegrationPipeline:
 
     def test_s5_multi_settlement(self):
         result = run_pipeline("S5_MULTI_SETTLEMENT")
-        # Harus ada 2 settlement individual — bukan digabung
         assert len(result["settlements"]) == 2
         marketplaces = {s["marketplace"] for s in result["settlements"]}
         assert "shopee" in marketplaces
         assert "tokopedia" in marketplaces
+        # FIX #6: S5 sekarang menghasilkan multiple karena ada piutang + restock
+        assert result["pending_decision"]["type"] == "multiple"
+        assert len(result["pending_decision"]["decisions"]) == 2
+        types = {d["type"] for d in result["pending_decision"]["decisions"]}
+        assert "collect_receivable" in types
+        assert "restock" in types
 
     def test_semua_skenario_tidak_crash(self):
         scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
