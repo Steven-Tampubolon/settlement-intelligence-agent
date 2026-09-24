@@ -6,6 +6,7 @@ from backend.config import LANGFLOW_FLOW_ID
 from backend.database import get_all_active_stores
 from backend.services.langflow_client import LangflowClient
 from backend.services.alert_service import send_alert
+from backend.scheduler.trigger_resolver import resolve_pending_triggers
 
 client = LangflowClient()
 
@@ -31,6 +32,9 @@ def run_daily_monitoring(scenario_override: str | None = None):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] Memulai monitoring {len(stores)} toko...")
 
+    # Cek pending triggers sebelum monitoring rutin
+    resolve_pending_triggers()
+
     results = []
     for store in stores:
         scenario = scenario_override or "S1_AMAN"
@@ -38,14 +42,12 @@ def run_daily_monitoring(scenario_override: str | None = None):
         print(f"  → {store_id} ({store['owner_name']}) — skenario: {scenario}")
 
         try:
-            # Step 1: Jalankan flow di Langflow
             validated_output = client.run_flow(
                 store_id=store_id,
                 scenario=scenario,
             )
             print(f"    Flow selesai — valid: {validated_output.get('valid')}")
 
-            # Step 2: Kirim alert ke Telegram
             result = send_alert(store_id=store_id, validated_output=validated_output)
             results.append({"store_id": store_id, "status": "ok", **result})
 
