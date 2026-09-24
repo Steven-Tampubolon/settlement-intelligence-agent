@@ -28,4 +28,5 @@ def classify_risk(projection: dict) -> dict:
         "store_id": projection["store_id"],
         "overdue_receivables": projection.get("overdue_receivables", []),
         "pending_stock_need": projection.get("pending_stock_need"),
+        "flash_sale_opportunity": projection.get("flash_sale_opportunity"),
     }

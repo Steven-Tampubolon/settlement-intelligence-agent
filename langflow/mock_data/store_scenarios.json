@@ -164,6 +164,38 @@
           "stock_depletes_on": "2026-09-27"
         }
       }
+    },
+    "S6_FLASH_SALE": {
+      "description": "Kas sehat, ada flash sale besok, perlu keputusan ikut atau tidak",
+      "data": {
+        "store_id": "toko_andi_001",
+        "owner_name": "Pak Deni",
+        "marketplace": "shopee",
+        "period": "2026-09-15 to 2026-09-21",
+        "current_cash_balance": 12400000,
+        "average_daily_expense": 560000,
+        "settlements": [
+          {
+            "settlement_id": "TPJ-601",
+            "marketplace": "tokopedia",
+            "gross_revenue": 11500000,
+            "commission_rate": 0.055,
+            "admin_fee": 130000,
+            "shipping_subsidy": 200000,
+            "returns_total": 100000,
+            "scheduled_disbursement_date": "2026-09-23",
+            "status": "pending"
+          }
+        ],
+        "overdue_receivables": [],
+        "pending_stock_need": null,
+        "flash_sale_opportunity": {
+          "platform": "Shopee",
+          "date": "2026-09-23",
+          "estimated_revenue_uplift": 8000000,
+          "required_stock_budget": 4500000
+        }
+      }
     }
   }
 }

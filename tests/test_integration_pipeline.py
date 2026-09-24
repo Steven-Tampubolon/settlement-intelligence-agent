@@ -58,3 +58,42 @@ class TestIntegrationPipeline:
             assert "status" in result
             assert "current_cash" in result
             assert result["status"] in ("AMAN", "WASPADA", "KRITIS")
+
+    def test_s6_flash_sale_can_join(self):
+        """S6: kas cukup, flash sale layak diikuti."""
+        raw = fetch_store_data("toko_andi_001", "S6_FLASH_SALE")
+        net = calculate_net(raw)
+        proj = build_projection(net)
+        risk = classify_risk(proj)
+        result = make_decision(risk)
+
+        assert result["status"] == "AMAN"
+        assert result["pending_decision"] is not None
+        assert result["pending_decision"]["type"] == "flash_sale"
+        assert result["pending_decision"]["can_join"] is True
+        assert result["pending_decision"]["cash_after_joining"] == 12400000 - 4500000
+        assert "IKUT" in result["pending_decision"]["recommendation"]
+
+
+    def test_s6_flash_sale_cannot_join(self):
+        """Variasi S6: kas terlalu tipis setelah ikut flash sale."""
+        from langflow.logic.decision_engine import _evaluate_flash_sale
+
+        risk_data = {
+            "current_cash_balance": 5000000,
+            "settlements_net": [],
+            "overdue_receivables": [],
+            "pending_stock_need": None,
+        }
+        opportunity = {
+            "platform": "Tokopedia",
+            "date": "2026-09-23",
+            "estimated_revenue_uplift": 5000000,
+            "required_stock_budget": 3500000,  # cash_after = 1.500.000 < 2.000.000 buffer
+        }
+        decision = _evaluate_flash_sale(risk_data, opportunity)
+
+        assert decision["type"] == "flash_sale"
+        assert decision["can_join"] is False
+        assert "TUNGGU" in decision["recommendation"]
+        assert decision["cash_after_joining"] == 5000000 - 3500000
