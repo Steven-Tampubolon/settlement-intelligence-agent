@@ -30,6 +30,7 @@ def init_db():
             llm_model_used TEXT NOT NULL,
             validation_passed BOOLEAN NOT NULL,
             user_action TEXT,
+            decision_data TEXT,
             sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -44,6 +45,15 @@ def init_db():
     """)
 
     conn.commit()
+
+    # Migrasi: tambahkan kolom decision_data jika database lama belum punya
+    try:
+        conn.execute("ALTER TABLE alert_history ADD COLUMN decision_data TEXT")
+        conn.commit()
+        print("✅ Migrasi: kolom decision_data ditambahkan ke alert_history")
+    except sqlite3.OperationalError:
+        pass  # Kolom sudah ada
+
     conn.close()
 
 
