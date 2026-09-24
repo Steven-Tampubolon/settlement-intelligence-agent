@@ -139,3 +139,78 @@ class TestOutputValidator:
         for field in required:
             assert field in fallback, f"Field '{field}' tidak ada di fallback"
         assert fallback["_fallback_used"] is True
+
+    def test_missing_restock_cost_number(self):
+        """Cost restock tidak muncul di output — harus gagal validasi."""
+        decision = {
+            "store_owner": "Pak Andi",
+            "store_id": "toko_andi_001",
+            "status": "WASPADA",
+            "urgency_level": 2,
+            "current_cash": 3500000,
+            "runway_days": 14,
+            "min_balance_amount": 1400000,
+            "settlements": [
+                {"marketplace": "tokopedia", "net_amount": 8731000, "disbursement_date": "2026-09-26"}
+            ],
+            "total_incoming_this_week": 8731000,
+            "pending_decision": {
+                "type": "restock",
+                "item": "mie instan karton",
+                "cost": 6000000,
+                "stock_depletes": "2026-09-28",
+                "best_settlement": None,
+                "recommendation": "Restock setelah settlement cair",
+            },
+            "daily_projection": [],
+        }
+        # full_message tidak menyebut 6.000.000 (biaya restock)
+        bad_output = json.dumps({
+            "status_line": "🟡 WASPADA",
+            "incoming_funds": "💰 Tokopedia Rp 8.731.000 cair 26 Sep",
+            "key_decision": "Restock mie instan setelah settlement",
+            "full_message": "🟡 WASPADA – Kas Rp 3.500.000\n💰 Tokopedia Rp 8.731.000 cair 26 Sep\n📦 Restock mie instan setelah settlement",
+            "action_button": "Restock Sekarang",
+        })
+        result = validate_llm_output(bad_output, decision)
+        assert result["valid"] is False
+        assert 6000000 in result["missing_numbers"]
+
+    def test_fallback_message_contains_real_numbers(self):
+        """generate_fallback_message harus mengandung angka kas dan settlement asli."""
+        from langflow.logic.output_validator import generate_fallback_message
+
+        decision_data = {
+            "store_owner": "Pak Andi",
+            "store_id": "toko_andi_001",
+            "status": "KRITIS",
+            "urgency_level": 3,
+            "current_cash": 850000,
+            "runway_days": 3,
+            "min_balance_amount": -50000,
+            "settlements": [
+                {"marketplace": "tiktok_shop", "net_amount": 13208000,
+                "disbursement_date": "2026-09-28"}
+            ],
+            "total_incoming_this_week": 13208000,
+            "pending_decision": {
+                "type": "collect_receivable",
+                "target": "Toko Makmur",
+                "amount": 3500000,
+                "overdue_days": 8,
+                "recommendation": "Tagih Toko Makmur hari ini",
+                "all_receivables": [],
+            },
+            "daily_projection": [],
+        }
+
+        fallback = generate_fallback_message(decision_data)
+
+        # Harus ada semua required fields
+        assert "status_line" in fallback
+        assert "full_message" in fallback
+        assert fallback["_fallback_used"] is True
+
+        # Angka kritis harus muncul di full_message
+        assert "850.000" in fallback["full_message"], "Saldo kas tidak ada di fallback message"
+        assert "13.208.000" in fallback["full_message"], "Net settlement tidak ada di fallback message"

@@ -24,15 +24,46 @@ def validate_llm_output(llm_output: str, decision_data: dict) -> dict:
 
 def _extract_critical_numbers(decision_data: dict) -> list:
     numbers = []
+
+    # Saldo kas saat ini
     if decision_data.get("current_cash", 0) > 10000:
         numbers.append(int(decision_data["current_cash"]))
+
+    # Net amount per settlement — WAJIB muncul individual
     for s in decision_data.get("settlements", []):
         if s.get("net_amount", 0) > 10000:
             numbers.append(int(s["net_amount"]))
+
     decision = decision_data.get("pending_decision")
-    if decision and decision.get("type") == "collect_receivable":
-        if decision.get("amount", 0) > 10000:
-            numbers.append(int(decision["amount"]))
+    if decision:
+        decision_type = decision.get("type")
+
+        if decision_type == "collect_receivable":
+            if decision.get("amount", 0) > 10000:
+                numbers.append(int(decision["amount"]))
+
+        elif decision_type == "restock":
+            # TAMBAHAN: validasi cost restock
+            if decision.get("cost", 0) > 10000:
+                numbers.append(int(decision["cost"]))
+
+        elif decision_type == "flash_sale":
+            if decision.get("required_stock_budget", 0) > 10000:
+                numbers.append(int(decision["required_stock_budget"]))
+            if decision.get("cash_after_joining", 0) > 10000:
+                numbers.append(int(decision["cash_after_joining"]))
+
+        elif decision_type == "multiple":
+            for sub in decision.get("decisions", []):
+                sub_type = sub.get("type")
+                if sub_type == "collect_receivable" and sub.get("amount", 0) > 10000:
+                    numbers.append(int(sub["amount"]))
+                elif sub_type == "restock" and sub.get("cost", 0) > 10000:
+                    numbers.append(int(sub["cost"]))
+                elif sub_type == "flash_sale":
+                    if sub.get("required_stock_budget", 0) > 10000:
+                        numbers.append(int(sub["required_stock_budget"]))
+
     return numbers
 
 
