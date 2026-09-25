@@ -343,5 +343,100 @@ WEBHOOK_BASE_URL=https://xxx.ngrok-free.app  # tambahan sprint ini
 
 ---
 
+## 11. Bug Fix Round 1 — 24–25 September 2026
+
+Sprint perbaikan berdasarkan review manual terhadap codebase v1.0.0-mvp.
+6 fix dikerjakan, semua Acceptance Criteria terpenuhi.
+
+### Ringkasan Fix
+
+| # | Prioritas | Fix | Status |
+|---|-----------|-----|--------|
+| 1 | P0 | Fallback message kosong angka | ✅ Selesai |
+| 2 | P0 | Output Validator tidak cek angka restock | ✅ Selesai |
+| 3 | P1 | System prompt dasar tidak sinkron dengan retry prompt | ✅ Selesai |
+| 4 | P1 | Loop follow-up pending_triggers tidak pernah dipakai | ✅ Selesai |
+| 5 | P2 | flash_sale belum diimplementasikan | ✅ Selesai |
+| 6 | P2 | multiple decision type belum diimplementasikan | ✅ Selesai |
+
+### Detail Perubahan
+
+**FIX #1 (P0) — Fallback Message Kosong Angka**
+
+Ditemukan dua fungsi fallback yang saling bertentangan: `generate_fallback_message()` di `langflow/logic/output_validator.py` (benar, mengandung angka asli) tidak pernah dipanggil di jalur produksi. Yang dipakai justru `_build_fallback_message()` di `alert_service.py` yang generik tanpa angka apapun.
+
+*Root cause:* `send_alert()` tidak menerima `decision_data` sehingga tidak bisa memanggil fungsi yang benar.
+
+*Solusi:*
+- `langflow_client.py`: ekstrak `decision_data` dari response Langflow dan sertakan di setiap return
+- `alert_service.py`: panggil `generate_fallback_message(decision_data)`, hapus `_build_fallback_message()`
+- `database.py`: tambah kolom `decision_data` (JSON) di tabel `alert_history` + migrasi otomatis
+
+**FIX #2 (P0) — Output Validator Tidak Cek Angka Restock**
+
+`_extract_critical_numbers()` hanya mengecek `collect_receivable`. Skenario S2 dan S4 (restock) bisa lolos validasi meski LLM tidak menyebut biaya restock.
+
+*Solusi:* Tambah pengecekan untuk `restock.cost`, `flash_sale.required_stock_budget`, `flash_sale.cash_after_joining`, dan semua sub-decisions di `multiple`.
+
+**FIX #3 (P1) — Sinkronisasi System Prompt**
+
+`RETRY_SYSTEM_PROMPT` di `langflow_client.py` punya aturan lebih lengkap dari `message_formatter_system_prompt.md`. Akibatnya attempt pertama sering gagal dan baru valid di attempt kedua — buang 1 API call + 2 detik per request.
+
+*Solusi:*
+- Satukan ke satu file: `langflow/prompts/message_formatter_system_prompt.md`
+- Tambah aturan 8 (restock cost wajib sebut), aturan 9 (multiple priority), aturan 10 (flash sale budget)
+- `langflow_client.py` baca dari file — hapus `RETRY_SYSTEM_PROMPT` duplikat
+- Prompt dikirim via `tweaks` di setiap request sehingga selalu sinkron dengan file
+
+*Hasil:* S5 (multi-settlement) sekarang lolos di attempt pertama tanpa retry.
+
+**FIX #4 (P1) — Loop Follow-up Pending Triggers**
+
+Tabel `pending_triggers` ada di schema tapi tidak pernah di-insert, dibaca, atau diupdate. Ini bertentangan dengan konsep inti produk: agent yang terus memantau.
+
+*Solusi:*
+- `telegram_webhook.py`: `_handle_confirm()` buat entry `pending_triggers` jika keputusan terakhir adalah restock
+- `trigger_resolver.py` (file baru): cek trigger yang kondisinya terpenuhi, kirim follow-up alert
+- `daily_monitor.py`: panggil `resolve_pending_triggers()` di awal setiap run
+- `database.py`: tambah kolom `decision_data` di `alert_history` agar `_get_last_decision_data()` bisa bekerja
+
+**FIX #5 (P2) — Implementasi flash_sale Decision Type**
+
+Tercatat di `KNOWN_GAPS.md` Sprint 1 sebagai scope berikutnya.
+
+*Implementasi:*
+- Konstanta: `FLASH_SALE_MIN_CASH_BUFFER = 2.000.000`, `FLASH_SALE_MAX_STOCK_BUDGET_RATIO = 0.5`
+- `_evaluate_flash_sale()` — rules-based: `can_join` jika kas cukup dan budget ≤ 50% kas
+- Skenario `S6_FLASH_SALE` ditambahkan ke mock data
+- Pass-through `flash_sale_opportunity` di NetCalculator, ProjectionBuilder, RiskClassifier
+
+**FIX #6 (P2) — Implementasi multiple Decision Type**
+
+Tercatat di `KNOWN_GAPS.md` Sprint 1 sebagai scope berikutnya.
+
+*Implementasi:*
+- `make_decision()` direfactor ke `active_decisions` pattern — kumpulkan semua keputusan aktif, baru tentukan tipe
+- `collect_receivable` sekarang aktif di semua status (sebelumnya hanya KRITIS) — agar S5 yang punya piutang + restock menghasilkan `multiple`
+- `_build_multiple_decision()` — urutkan berdasarkan prioritas: collect_receivable > restock > flash_sale
+- S5 sekarang otomatis menghasilkan `type: "multiple"` dengan 2 sub-decisions
+
+### Perubahan Section 3.1 (Update dari Sprint 1)
+
+Section 3.1 Sprint 1 menyatakan retry menggunakan prompt lebih eksplisit mulai attempt ke-2. Ini sudah diubah di Bug Fix Round 1:
+
+- **Sebelum:** Attempt 1 pakai prompt dasar, attempt 2–3 pakai `RETRY_SYSTEM_PROMPT` yang lebih eksplisit
+- **Sesudah:** Semua attempt pakai prompt yang sama — dibaca dari `message_formatter_system_prompt.md` yang sudah lengkap dari attempt pertama. Retry tetap ada untuk handle timeout dan invalid JSON, tapi bukan lagi untuk mengganti prompt.
+
+### Hasil Test Akhir Bug Fix Round 1
+
+| Kategori | Sprint 1 | Bug Fix Round 1 |
+|----------|----------|-----------------|
+| Unit tests | 27/27 ✅ | 36/36 ✅ |
+| Integration pipeline | 5/5 ✅ | 7/7 ✅ |
+| Integration e2e | 15/15 ✅ | 17/17 ✅ |
+| Trigger resolver | — | 5/5 ✅ |
+| **Total** | **42/42** ✅ | **53/53** ✅ |
+| Skenario mock valid | 5/5 | 6/6 (+ S6_FLASH_SALE) |
+---
 *Laporan ini dibuat berdasarkan pengerjaan sprint 21–22 September 2026.*
 *Semua keputusan teknis yang menyimpang dari spesifikasi original telah didokumentasikan di Section 3.*

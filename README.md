@@ -180,9 +180,12 @@ WEBHOOK_BASE_URL=https://xxx.ngrok-free.dev
 
 ## Test Results
 ```
-Unit tests: 27/27 passed
-Integration e2e: 15/15 passed
-Skenario validated: 5/5 valid=true, missing_numbers=[]
+Unit tests: 36/36 passed
+Integration pipeline: 7/7
+Integration e2e: 17/17 passed
+Trigger resolver: 5/5
+**Total**: **53/53**
+Skenario validated: 6/6 valid=true, missing_numbers=[] (+ S6_FLASH_SALE)
 ```
 
 ## Catatan Arsitektur
