@@ -63,6 +63,7 @@ class ProjectionBuilder(Component):
             "store_id": net_data["store_id"],
             "overdue_receivables": net_data.get("overdue_receivables", []),
             "pending_stock_need": net_data.get("pending_stock_need"),
+            "flash_sale_opportunity": net_data.get("flash_sale_opportunity"),
         }
 
     def build(self):

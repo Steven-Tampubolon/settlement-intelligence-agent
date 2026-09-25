@@ -49,6 +49,7 @@ class RiskClassifier(Component):
             "store_id": projection["store_id"],
             "overdue_receivables": projection.get("overdue_receivables", []),
             "pending_stock_need": projection.get("pending_stock_need"),
+            "flash_sale_opportunity": projection.get("flash_sale_opportunity"),
         }
 
     def build(self):

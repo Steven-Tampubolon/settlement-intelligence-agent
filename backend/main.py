@@ -98,7 +98,10 @@ def trigger_now(req: TriggerRequest):
 
 @app.post("/trigger/scenario/{scenario}")
 def trigger_scenario(scenario: str):
-    valid_scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
+    valid_scenarios = [
+        "S1_AMAN", "S2_WASPADA", "S3_KRITIS",
+        "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT", "S6_FLASH_SALE"
+    ]
     if scenario not in valid_scenarios:
         raise HTTPException(
             status_code=400,

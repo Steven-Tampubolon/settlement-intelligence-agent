@@ -112,17 +112,16 @@ class LangflowClient:
 
     def _extract_decision_data(self, response: dict) -> dict:
         """
-        Ambil output Decision Engine dari Langflow response.
-        Decision Engine output adalah Message (JSON string) — kita parse kembali.
+        Ambil decision_data dari output OutputValidator.
+        OutputValidator sekarang meng-embed decision_data di dalam JSON output-nya.
         """
         try:
-            for output in response["outputs"][0]["outputs"]:
-                if output.get("component_display_name") == "Decision Engine":
-                    raw_text = output["results"]["message"]["text"]
-                    return json.loads(raw_text)
+            outputs = response["outputs"][0]["outputs"][0]
+            text = outputs["results"]["message"]["text"]
+            parsed = json.loads(text)
+            return parsed.get("decision_data", {})
         except (KeyError, IndexError, json.JSONDecodeError, TypeError):
-            pass
-        return {}
+            return {}
 
     def _build_fallback(self, last_result: dict | None) -> dict:
         """Fallback ketika semua retry gagal — sertakan decision_data."""

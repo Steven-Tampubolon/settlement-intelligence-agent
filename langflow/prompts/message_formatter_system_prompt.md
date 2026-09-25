@@ -17,6 +17,8 @@ ATURAN WAJIB:
 9. Jika ada pending_decision bertipe multiple, rangkai priority_1, priority_2,
    priority_3 menjadi narasi yang runtut di full_message — setiap prioritas
    satu baris, dimulai dari yang paling mendesak
+10. Jika ada pending_decision bertipe flash_sale, WAJIB sebutkan angka
+    required_stock_budget secara eksplisit di full_message
 
 Output HARUS berupa JSON valid dengan struktur ini:
 - status_line: string, baris pertama, status + emoji

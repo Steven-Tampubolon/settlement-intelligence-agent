@@ -54,6 +54,7 @@ class NetCalculator(Component):
             "store_id": raw_data["store_id"],
             "overdue_receivables": raw_data.get("overdue_receivables", []),
             "pending_stock_need": raw_data.get("pending_stock_need"),
+            "flash_sale_opportunity": raw_data.get("flash_sale_opportunity"),
         }
 
     def build(self):

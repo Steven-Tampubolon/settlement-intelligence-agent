@@ -172,10 +172,9 @@ class TestFullPipeline:
         assert r.status_code == 200
         assert r.json()["status"] == "triggered"
 
-        # Tunggu flow selesai
+        # Flow + retry logic bisa butuh hingga 30 detik
         time.sleep(30)
 
-        # Verifikasi alert tersimpan di database
         count = count_alerts_after("toko_andi_001", before)
         assert count >= 1, "Alert tidak tersimpan di database setelah trigger"
 
@@ -286,3 +285,74 @@ class TestRetryLogic:
             f"Ada {len(fallback_alerts)} alert fallback: "
             f"{[a['store_id'] for a in fallback_alerts]}"
         )
+
+class TestNewScenarios:
+    """Test skenario baru dari bugfix sprint."""
+
+    def test_s6_flash_sale_via_api(self, backend_url, langflow_url):
+        """S6: flash sale — verifikasi alert valid dan mengandung angka budget."""
+        from datetime import datetime
+        before = datetime.now().isoformat()
+
+        r = requests.post(
+            f"{backend_url}/trigger/scenario/S6_FLASH_SALE",
+        )
+        assert r.status_code == 200
+
+        time.sleep(90)
+
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT * FROM alert_history
+            WHERE store_id = ? AND sent_at > ?
+            ORDER BY sent_at DESC LIMIT 1
+            """,
+            ("toko_andi_001", before),
+        ).fetchone()
+        conn.close()
+
+        assert row is not None, "Alert S6_FLASH_SALE tidak tersimpan"
+        assert row["validation_passed"] == 1, (
+            f"Alert tidak valid. Message: {row['message_sent']}"
+        )
+        # Angka budget flash sale harus ada di pesan
+        assert "4.500.000" in row["message_sent"], (
+            f"Budget flash sale tidak ada di pesan: {row['message_sent']}"
+        )
+
+    def test_s5_multiple_decision_via_api(self, backend_url, langflow_url):
+        """S5: multiple decision — verifikasi pesan mengandung kedua prioritas."""
+        from datetime import datetime
+        before = datetime.now().isoformat()
+
+        r = requests.post(
+            f"{backend_url}/trigger/scenario/S5_MULTI_SETTLEMENT",
+        )
+        assert r.status_code == 200
+
+        time.sleep(90)
+
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT * FROM alert_history
+            WHERE store_id = ? AND sent_at > ?
+            ORDER BY sent_at DESC LIMIT 1
+            """,
+            ("toko_andi_001", before),
+        ).fetchone()
+        conn.close()
+
+        assert row is not None, "Alert S5 tidak tersimpan"
+        assert row["validation_passed"] == 1
+
+        # Verifikasi decision_data mengandung multiple type
+        decision_data = json.loads(row["decision_data"]) if row["decision_data"] else {}
+        pending = decision_data.get("pending_decision", {})
+        assert pending.get("type") == "multiple", (
+            f"Expected multiple, got: {pending.get('type')}"
+        )
+        assert len(pending.get("decisions", [])) == 2
