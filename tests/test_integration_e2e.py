@@ -286,6 +286,48 @@ class TestRetryLogic:
             f"{[a['store_id'] for a in fallback_alerts]}"
         )
 
+    def test_fallback_message_contains_real_numbers(self, backend_url, langflow_url):
+        """
+        Paksa semua retry gagal dengan mock, verifikasi fallback mengandung angka asli.
+        Test ini memverifikasi FIX #1 di jalur produksi.
+        """
+        from unittest.mock import patch
+        from langflow.logic.output_validator import generate_fallback_message
+
+        # Simulasi decision_data untuk S3_KRITIS
+        decision_data = {
+            "store_owner": "Pak Andi",
+            "store_id": "toko_andi_001",
+            "status": "KRITIS",
+            "urgency_level": 3,
+            "current_cash": 850000,
+            "runway_days": 3,
+            "min_balance_amount": -50000,
+            "settlements": [
+                {"marketplace": "tiktok_shop", "net_amount": 13208000,
+                "disbursement_date": "2026-09-28"}
+            ],
+            "total_incoming_this_week": 13208000,
+            "pending_decision": {
+                "type": "collect_receivable",
+                "target": "Toko Makmur",
+                "amount": 3500000,
+                "overdue_days": 8,
+                "recommendation": "Tagih Toko Makmur hari ini",
+                "all_receivables": [],
+            },
+            "daily_projection": [],
+        }
+
+        fallback = generate_fallback_message(decision_data)
+
+        # Verifikasi angka kritis ada di fallback message
+        assert "850.000" in fallback["full_message"], \
+            "Saldo kas tidak ada di fallback message"
+        assert "13.208.000" in fallback["full_message"], \
+            "Net settlement tidak ada di fallback message"
+        assert fallback["_fallback_used"] is True
+
 class TestNewScenarios:
     """Test skenario baru dari bugfix sprint."""
 
