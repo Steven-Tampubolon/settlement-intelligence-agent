@@ -118,7 +118,10 @@ def trigger_scenario(scenario: str):
 
 @app.post("/trigger/all-scenarios")
 def trigger_all_scenarios():
-    scenarios = ["S1_AMAN", "S2_WASPADA", "S3_KRITIS", "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT"]
+    scenarios = [
+        "S1_AMAN", "S2_WASPADA", "S3_KRITIS",
+        "S4_RESTOCK_AMAN", "S5_MULTI_SETTLEMENT", "S6_FLASH_SALE"
+        ]
     results = []
     for s in scenarios:
         try:
