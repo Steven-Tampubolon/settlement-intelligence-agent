@@ -1,17 +1,20 @@
 # Settlement Intelligence Agent
 
 Agent monitoring settlement marketplace (Tokopedia/Shopee/TikTok Shop) yang berjalan
-otomatis setiap hari, menghitung proyeksi kas, dan mengirim alert actionable ke Telegram.
+otomatis setiap hari, menghitung proyeksi kas, mengklasifikasi risiko, dan mengirim
+alert actionable ke Telegram.
 
-## Demo
+## Skenario yang Didukung
 
-| Skenario | Status | Alert |
-|----------|--------|-------|
-| S1 — Normal | ✅ AMAN | Saldo cukup, settlement Shopee masuk 24 Sep |
-| S2 — Restock | ✅ AMAN | Restock mie instan setelah Tokopedia cair |
-| S3 — Kritis | 🔴 KRITIS | Tagih Toko Makmur hari ini, kas hanya Rp 850.000 |
+| Skenario | Status | Keputusan |
+|----------|--------|-----------|
+| S1 — Normal | ✅ AMAN | Pantau — settlement masuk sesuai jadwal |
+| S2 — Perlu Restock | ✅ AMAN | Restock mie instan setelah settlement cair |
+| S3 — Kas Kritis | 🔴 KRITIS | Tagih Toko Makmur hari ini, kas Rp 850.000 |
 | S4 — Restock Aman | ✅ AMAN | Restock sabun setelah Shopee cair |
-| S5 — Multi-marketplace | ✅ AMAN | Shopee Rp 13jt + Tokopedia Rp 7jt minggu ini |
+| S5 — Multi-masalah | 🟡 WASPADA | Tagih piutang + restock setelah settlement |
+| S6 — Peluang Flash Sale | ✅ AMAN | IKUT flash sale Shopee — kas aman setelah beli stok |
+
 
 ## Arsitektur
 
@@ -24,6 +27,7 @@ Scheduler (06:00 WIB)
 → FastAPI Backend
 → Telegram Alert + Inline Keyboard
 → Webhook Handler (confirm / detail / close)
+→ Trigger Resolver (follow-up otomatis saat settlement cair)
 ```
 
 ## Stack
@@ -42,17 +46,26 @@ Scheduler (06:00 WIB)
 ```
 settlement-intelligence-agent/
 ├── backend/
-│ ├── main.py # FastAPI app + webhook
+│ ├── main.py # FastAPI app + webhook + APScheduler
 │ ├── config.py # Environment variables
-│ ├── database.py # SQLite init + queries
+│ ├── database.py # SQLite init + queries + migrasi
+│ ├── models.py # Store, AlertHistory, PendingTrigger dataclass
 │ ├── scheduler/
-│ │ └── daily_monitor.py # Trigger Langflow flow
+│ │ ├── daily_monitor.py # Trigger Langflow per toko
+│ │ └── trigger_resolver.py # Cek dan resolve pending_triggers
 │ └── services/
-│ ├── langflow_client.py # Langflow REST client
-│ ├── alert_service.py # Telegram delivery
-│ └── telegram_webhook.py # Callback handler
+│ ├── langflow_client.py # Langflow REST client + retry logic
+│ ├── alert_service.py # Telegram delivery + history
+│ └── telegram_webhook.py # Callback handler (confirm/detail/close)
 ├── langflow/
-│ ├── components/ # Custom Python components
+│ ├── components/ # Langflow custom components (lfx-based)
+│ │ ├── data_fetcher.py
+│ │ ├── net_calculator.py
+│ │ ├── projection_builder.py
+│ │ ├── risk_classifier.py
+│ │ ├── decision_engine.py
+│ │ └── output_validator.py
+│ ├── logic/ # Business logic murni (testable tanpa Langflow)
 │ │ ├── data_fetcher.py
 │ │ ├── net_calculator.py
 │ │ ├── projection_builder.py
@@ -60,20 +73,28 @@ settlement-intelligence-agent/
 │ │ ├── decision_engine.py
 │ │ └── output_validator.py
 │ ├── flows/
-│ │ └── settlement_monitor_flow.json
+│ │ └── settlement_monitor_flow.json # Export flow (credentials scrubbed)
 │ ├── mock_data/
-│ │ └── store_scenarios.json # 5 skenario test
+│ │ └── store_scenarios.json # 6 skenario S1–S6
 │ └── prompts/
-│ └── message_formatter_system_prompt.md
+│ └── message_formatter_system_prompt.md # Satu sumber system prompt
 ├── tests/
-│ ├── test_net_calculator.py
-│ ├── test_risk_classifier.py
-│ ├── test_projection_builder.py
-│ ├── test_output_validator.py
-│ ├── test_integration_pipeline.py
-│ └── test_integration_e2e.py
+│ ├── test_net_calculator.py # 4 tests
+│ ├── test_risk_classifier.py # 6 tests
+│ ├── test_projection_builder.py # 4 tests
+│ ├── test_output_validator.py # 10 tests
+│ ├── test_integration_pipeline.py # 7 tests
+│ ├── test_integration_e2e.py # 17 tests
+│ └── test_trigger_resolver.py # 5 tests
 ├── scripts/
 │ └── test_telegram.py
+├── docs/
+│ ├── ARCHITECTURE_BOUNDARIES.md
+│ ├── SPIKE_TEST_RESULTS.md
+│ ├── SPRINT_SETTLEMENT_AGENT.md
+│ ├── SPRINT_BUGFIX_ROUND1.md
+│ ├── SPRINT_REPORT.md
+│ └── KNOWN_GAPS.md
 ├── docker-compose.yml
 ├── requirements.txt
 └── .env.example
@@ -134,10 +155,10 @@ ngrok http 8000
 ### 7. Test
 
 ```bash
-# Unit tests
+# Unit tests (tanpa Langflow/uvicorn)
 pytest tests/ -v --ignore=tests/test_integration_e2e.py
 
-# Integration test e2e (butuh Langflow + uvicorn jalan)
+# Integration test e2e (butuh Langflow + uvicorn + ngrok jalan)
 pytest tests/test_integration_e2e.py -v
 
 # Test semua skenario via API
@@ -172,8 +193,8 @@ WEBHOOK_BASE_URL=https://xxx.ngrok-free.dev
 |--------|----------|-----------|
 | GET | `/health` | Health check |
 | POST | `/trigger` | Trigger monitoring manual |
-| POST | `/trigger/scenario/{scenario}` | Trigger satu skenario |
-| POST | `/trigger/all-scenarios` | Trigger semua 5 skenario |
+| POST | `/trigger/scenario/{scenario}` | Trigger satu skenario (S1–S6) |
+| POST | `/trigger/all-scenarios` | Trigger semua 6 skenario |
 | GET | `/scheduler/status` | Status scheduler |
 | GET | `/alerts/history` | History alert terkirim |
 | POST | `/webhook/telegram` | Webhook callback Telegram |
@@ -188,10 +209,13 @@ Trigger resolver: 5/5
 Skenario validated: 6/6 valid=true, missing_numbers=[] (+ S6_FLASH_SALE)
 ```
 
+
 ## Catatan Arsitektur
 
 - **LLM hanya untuk formatting** — kalkulasi dan keputusan dilakukan di Python
 - **Validasi berlapis** — OutputValidator memastikan angka kritis tidak hilang dari pesan
-- **Model fallback** — `qwen/qwen3.8-27b` (primary), validasi ekstra untuk multi-settlement
+- **Fallback dengan angka asli** — jika LLM gagal 3x, fallback template Python tetap menyertakan angka kas dan settlement asli
+- **Satu sumber system prompt** — `langflow/prompts/message_formatter_system_prompt.md` dipakai di semua attempt via tweaks API
 - **Swap ke real API** — ganti hanya `DataFetcher` component, semua layer di atas tidak berubah
 - **Threshold risiko** — konstanta di Python (`CRITICAL=3 hari`, `WARNING=7 hari`), bukan di prompt
+- **Follow-up otomatis** — `trigger_resolver.py` cek `pending_triggers` setiap hari dan kirim follow-up saat kondisi terpenuhi
